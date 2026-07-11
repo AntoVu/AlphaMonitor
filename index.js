@@ -1,12 +1,31 @@
 require("dotenv").config();
 const { status } = require("minecraft-server-util");
 const axios = require("axios");
+const fs = require("fs");
 
 const SERVER = "alpha.hypixel.net";
-const INTERVAL = 30000; // 30 seconds
+const INTERVAL = 30000;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
+const STATE_FILE = "state.json";
 
 let previousMax = null;
+
+function loadState() {
+  try {
+    if (fs.existsSync(STATE_FILE)) {
+      const data = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+      console.log(`📂 Loaded previous max: ${data.previousMax}`);
+      return data.previousMax;
+    }
+  } catch (err) {
+    console.error("Could not load state file, starting fresh.");
+  }
+  return null;
+}
+
+function saveState(max) {
+  fs.writeFileSync(STATE_FILE, JSON.stringify({ previousMax: max }));
+}
 
 function getStatus(max) {
   if (max === 0) return { label: "🔴 Closed", color: 0xff0000 };
@@ -15,18 +34,15 @@ function getStatus(max) {
   return { label: "🟢 Open", color: 0x00ff00 };
 }
 
-function shouldPingEveryone(prevMax, currentMax) {
-  // Only ping @everyone if it goes from 0/private to a large open state
-  return prevMax <= 25 && currentMax > 25;
-}
-
-async function sendDiscordMessage(prevMax, currentMax) {
+async function sendDiscordMessage(prevMax, currentMax, isStartup = false) {
   const { label, color } = getStatus(currentMax);
 
   const message = {
     embeds: [
       {
-        title: "🔔 Alpha Hypixel — Player Limit Changed!",
+        title: isStartup
+          ? "🔔 Overnight Change Detected!"
+          : "🔔 Player Limit Changed!",
         color: color,
         fields: [
           {
@@ -46,7 +62,9 @@ async function sendDiscordMessage(prevMax, currentMax) {
           },
         ],
         footer: {
-          text: "alpha.hypixel.net",
+          text: isStartup
+            ? "This change happened while the bot was offline"
+            : "alpha.hypixel.net",
         },
         timestamp: new Date().toISOString(),
       },
@@ -56,7 +74,7 @@ async function sendDiscordMessage(prevMax, currentMax) {
   await axios.post(WEBHOOK_URL, message);
 }
 
-async function checkServer() {
+async function checkServer(isStartup = false) {
   try {
     const res = await status(SERVER);
     const currentMax = res.players.max;
@@ -65,15 +83,17 @@ async function checkServer() {
 
     if (previousMax !== null && currentMax !== previousMax) {
       console.log(`Change detected! ${previousMax} → ${currentMax}`);
-      await sendDiscordMessage(previousMax, currentMax);
+      await sendDiscordMessage(previousMax, currentMax, isStartup);
     }
 
     previousMax = currentMax;
+    saveState(currentMax);
   } catch (err) {
     console.error(`Error pinging server: ${err.message}`);
   }
 }
 
 console.log("👀 Watching alpha.hypixel.net every 30 seconds...");
-checkServer();
-setInterval(checkServer, INTERVAL);
+previousMax = loadState();
+checkServer(true);
+setInterval(() => checkServer(false), INTERVAL);
