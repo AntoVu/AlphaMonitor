@@ -7,6 +7,7 @@ const SERVER = "alpha.hypixel.net";
 const INTERVAL = 30000;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 const STATE_FILE = "state.json";
+const ALPHA_ROLE_ID = process.env.ALPHA_ROLE_ID;
 
 let previousMax = null;
 
@@ -30,7 +31,7 @@ function saveState(max) {
 function getStatus(max) {
   if (max === 0) return { label: "🔴 Closed", color: 0xff0000 };
   if (max <= 25) return { label: "🟡 Private Testing", color: 0xffff00 };
-  if (max <= 49) return { label: "🟠 Limited Access", color: 0xff8800 };
+  if (max <= 50) return { label: "🟠 Limited Access", color: 0xff8800 };
   return { label: "🟢 Open", color: 0x00ff00 };
 }
 
@@ -38,6 +39,7 @@ async function sendDiscordMessage(prevMax, currentMax, isStartup = false) {
   const { label, color } = getStatus(currentMax);
 
   const message = {
+	content: `<@&${ALPHA_ROLE_ID}>`,
     embeds: [
       {
         title: isStartup
@@ -69,6 +71,9 @@ async function sendDiscordMessage(prevMax, currentMax, isStartup = false) {
         timestamp: new Date().toISOString(),
       },
     ],
+	allowed_mentions: {
+	  roles: [ALPHA_ROLE_ID],
+	},
   };
 
   await axios.post(WEBHOOK_URL, message);
