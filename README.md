@@ -72,3 +72,11 @@ running.
 ```sh
 npm test
 ```
+
+## License
+
+Copyright (C) 2026 AntoVu
+
+Licensed under the [GNU General Public License v3.0](LICENSE) or any later version. You can use, modify and
+share this code, including commercially, as long as you keep this copyright notice and release any modified
+version you distribute under the same license.
