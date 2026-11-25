@@ -12,6 +12,7 @@ const ALPHA_ROLE_ID = process.env.ALPHA_ROLE_ID;
 
 const FORUM_INTERVAL = 60000;
 // filter(thread) decides which new threads get posted; role is pinged with each one.
+// A forum is only monitored when its role ID is set in .env.
 const FORUMS = [
   {
     name: "News and Announcements",
@@ -31,7 +32,7 @@ const FORUMS = [
     filter: (t) => t.staff,
     role: process.env.ALPHA_THREAD_ROLE_ID,
   },
-];
+].filter((f) => f.role);
 
 // state = { previousMax, seen: { [forumUrl]: [threadId, ...] }, posted: [title, ...] }
 let state = { previousMax: null, seen: {}, posted: [] };
@@ -144,7 +145,7 @@ function parseThreads(html) {
 
 async function sendThreadMessage(forum, t) {
   await axios.post(WEBHOOK_URL, {
-    content: forum.role ? `<@&${forum.role}>` : undefined,
+    content: `<@&${forum.role}>`,
     embeds: [{
       title: t.title.slice(0, 256),
       url: t.url,
@@ -153,7 +154,7 @@ async function sendThreadMessage(forum, t) {
       footer: { text: `Posted by ${t.author}` },
       timestamp: new Date().toISOString(),
     }],
-    allowed_mentions: { roles: forum.role ? [forum.role] : [] },
+    allowed_mentions: { roles: [forum.role] },
   });
 }
 
@@ -188,7 +189,8 @@ async function checkForums() {
 }
 
 if (require.main === module) {
-  console.log("👀 Watching alpha.hypixel.net every 30 seconds and the forums every 60 seconds...");
+  console.log("👀 Watching alpha.hypixel.net every 30 seconds...");
+  console.log(`📰 Watching forums every 60 seconds: ${FORUMS.map((f) => f.name).join(", ") || "none (no forum role IDs set)"}`);
   loadState();
   checkServer(true);
   checkForums();
